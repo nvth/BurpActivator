@@ -1,264 +1,235 @@
-<a id="readme-top"></a>
+# Burp Suite Windows Installer
 
-<br />
-<div align="center">
-  <a href="https://github.com/nvth/BurpActivator">
-    <img src="img/logo.png" alt="Logo" width="80" height="80">
-  </a>
+Windows installer script for Burp Suite. It uses `install.cmd` as a bootstrapper to handle PowerShell Execution Policy, lets you choose the installation directory, and uses a dedicated portable JDK 21 for Burp only.
 
-  <h3 align="center">BurpSuite Pro Compatibility Pack</h3>
+> Use this only with a valid Burp Suite license. This project should not be used to bypass software licensing terms or access controls.
 
-  <p align="center">
-    This product is not a medicine and is not intended to replace medical treatment!<br>  
-    <i>Please read the usage instructions carefully before use.</i>
-    <br />
-    <a href="https://github.com/nvth/BurpActivator?tab=readme-ov-file"><strong>Explore the docs »</strong></a>
-    <br />
-    <br />
-    <a href="https://github.com/nvth/BurpActivator/releases">Release</a>
-    ·
-    <a href="https://github.com/nvth/BurpActivator/issues/new?labels=bug">Report Bug</a>
-    ·
-    <a href="https://github.com/nvth/BurpActivator/issues/new?labels=question">Request Feature</a>
-  </p>
-</div>
+## Main Files
 
+- `install.cmd`: the Windows entry point. It temporarily updates PowerShell Execution Policy, runs `install.ps1`, then restores the policy to `Default`.
+- `install.ps1`: the main Windows installation script.
+- `install-linux.sh`: Linux installer script.
+- `capsule_windows.md`: extra Windows notes and screenshots.
 
+## Requirements
 
-<!-- TABLE OF CONTENTS -->
-<details>
-  <summary>Table of Contents</summary>
-  <ol>
-    <li>
-      <a href="#about-the-project">About The Project</a>
-      <ul>
-        <li><a href="#built-with">Built With</a></li>
-      </ul>
-    </li>
-    <li>
-      <a href="#getting-started">Getting Started</a>
-      <ul>
-        <li><a href="#prerequisites">Prerequisites</a></li>
-        <li><a href="#installation">Installation</a></li>
-      </ul>
-    </li>
-    <li><a href="#usage">Usage</a></li>
-    <li><a href="#roadmap">Roadmap</a></li>
-    <li><a href="#contributing">Contributing</a></li>
-    <li><a href="#license">License</a></li>
-    <li><a href="#contact">Contact</a></li>
-    <li><a href="#acknowledgments">Acknowledgments</a></li>
-  </ol>
-</details>
+- Windows 10/11.
+- Administrator privileges.
+- Internet connection to download required files.
+- Java 21 does not need to be installed globally. The script downloads a portable JDK 21 inside the selected install directory.
 
+## Windows Installation
 
+1. Clone or download this repository.
 
-<!-- ABOUT THE PROJECT -->
-## About The Project
-
-[![Product Name Screen Shot][product-screenshot]](https://github.com/nvth/BurpActivator)
-
-This is Burpsuite Pro Pack.
-
-Here's why:
-* Save your money
-* Funny to use :smile:
-
-Hope y'all enjoy it!
-
-_Thanks Dr.FarFar for this loader_
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-### Built With
-
-Builder:
-
-[![java][java]][java] [![chatgpt][chatgpt]][chatgpt]
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- GETTING STARTED -->
-## Getting Started
-
-The following steps must be followed.
-
-### Prerequisites
-
-Requirements:
-* Windows: Run PowerShell as Administrator
-* Linux: Run with sudo/root privileges
-* Java 21 installed
-
-### Installation
-Clone the repo
-   ```sh
-    git clone https://github.com/nvth/burpsuite.git
-   ```
-#### Windows
-
-1. Requirements
- - JDK 21 installed (script can install OpenJDK 21 if missing)
-2. Open PowerShell as Administrator (required)
-    ```s
-    Set-ExecutionPolicy RemoteSigned
-    Set-ExecutionPolicy Unrestricted
-    ```
-    Run `install.ps1`
-
-    Revert the execution policy (optional)
-    ```s
-    Set-ExecutionPolicy Default
-    ```
-    Files are installed to:
-    - `C:\burpsuite_nvth\bin` (launchers: `burp.bat`, `BurpSuiteProfessional.vbs`)
-    - `C:\burpsuite_nvth\data` (downloads: `burpsuite_pro.jar`, `loader.jar`, JDK installer, icon)
-    Uninstall script: `C:\burpsuite_nvth\uninstall.ps1` (removes the entire `C:\burpsuite_nvth` folder)
-3. Activation and Start Menu shortcut
-
-   See [capsule_windows.md](capsule_windows.md) for the full, illustrated steps.  
-   Note (important): If you move the install folder, make sure `burpsuite_nvth` sits next to the script, then re-run the script.
    Example:
-   ```
-   burpsuite/
-   -- install.ps1
-   -- burpsuite_nvth/
-     |_ bin/
-     |_ data/
+
+   ```powershell
+   git clone https://github.com/nvth/burpsuite.git
    ```
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+2. Make sure the Windows installer files are present in the repository folder:
 
-#### Linux/Ubuntu
-
-1. Requirements
- - Run with sudo/root privileges
- - Java 18 or 21 (script can install OpenJDK 21 if missing)
-2. Run the installer
-   ```sh
-   sudo bash install-linux.sh
+   ```text
+   install.cmd
+   install.ps1
+   capsule_windows.md
    ```
-   The script will download required files, set up Java (if needed),
-   create a launcher and a desktop shortcut.
-3. Files are installed to:
-   - `<repo>/burpsuite_nvth/bin` (launcher: `burp`)
-   - `<repo>/burpsuite_nvth/data` (downloads: `burpsuite_pro.jar`, `loader-ubuntu.jar`, JDK, icon)
-   - `~/.local/share/applications/BurpSuiteProfessional.desktop` (desktop shortcut)
-   - `/usr/local/bin/burp` (symlink; falls back to `~/.local/bin/burp` if no sudo)
-   - Uninstall script: `<repo>/burpsuite_nvth/uninstall.sh`
-4. Auto-start after install
-   Before the script finishes, it will automatically open `loader-ubuntu.jar`
-   and then launch `burpsuite_pro.jar` to activate.
-5. If you move the install folder, make sure `burpsuite_nvth` sits next to the script, then re-run the script.
-   Example:
+
+3. Open the repository folder, for example:
+
+   ```text
+   C:\Users\admin\Downloads\burpsuite-master
    ```
-   burpsuite/
-   -- install-linux.sh
-   -- burpsuite_nvth/
-      |_ bin/
-      |_ data/
+
+4. Right-click `install.cmd` and choose **Run as administrator**.
+
+5. When prompted for the install directory:
+
+   ```text
+   Default install directory: C:\burpsuite_nvth
+   Enter install directory, or press Enter to use default:
    ```
-6. After activate, on terminal, type `burp`, happy hacking.
 
-<!-- USAGE EXAMPLES -->
-## Usage
+   You can:
 
-All-in-one script update coming soon.
+   - Press Enter to use the default `C:\burpsuite_nvth`.
+   - Enter an absolute path, for example `D:\Tools\BurpSuite`.
+   - Enter a relative path, for example `burp_install`; the script will create it next to `install.ps1`.
 
-Note: If Burp or your PC/laptop crashes or freezes, the installer auto-detects RAM and sets a minimum of 4GB for Burp.
-If your machine has less than 8GB of RAM, edit the launcher:
-- Windows: `burpsuite_nvth/bin/burp.bat`
-- Linux: `burpsuite_nvth/bin/burp`
+6. The script downloads the required files, creates launchers, and adds a Start Menu shortcut.
 
-Example (default 4G):
-```
-java -Xmx4G --add-opens...
+## Execution Policy
+
+Do not run this directly:
+
+```powershell
+.\install.ps1
 ```
 
-Change `-Xmx4G` to `-Xmx2G`, or remove the `-Xmx` option entirely:
+If PowerShell script execution is disabled, you may see:
+
+```text
+running scripts is disabled on this system
 ```
-java -Xmx2G --add-opens...
+
+Run `install.cmd` as Administrator instead. It automatically runs:
+
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope LocalMachine -Force
+Set-ExecutionPolicy Unrestricted -Scope LocalMachine -Force
 ```
 
-_For more examples, please refer to the [Documentation](https://example.com)_
+After `install.ps1` finishes, `install.cmd` restores the policy:
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+```powershell
+Set-ExecutionPolicy Default -Scope LocalMachine -Force
+```
 
+If restoring the policy fails, the manual command is printed in the console.
 
+## Installed Layout
 
-<!-- ROADMAP -->
-## Roadmap
+If you choose `<install-dir>`, the script creates:
 
-- [x] Add Changelog
-- [x] Add back to top links
-- [ ] Add "components" document to easily copy & paste sections of the readme
-- [ ] Multi-language Support
-    - [ ] English
-    - [ ] Vietnamese
+```text
+<install-dir>\
+  bin\
+    burp.bat
+    BurpSuiteProfessional.vbs
+  data\
+    burpsuite_pro.jar
+    loader.jar
+    jdk-21.0.10_windows-x64_bin.zip
+    burppro.ico
+  jdk\
+    bin\
+      java.exe
+  uninstall.ps1
+  UNINSTALL.txt
+```
 
-See the [open issues](https://github.com/nvth/BurpActivator/issues) for a full list of proposed features (and known issues).
+## Portable Java
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+The script does not install Java globally and does not overwrite the Java version already used by your system.
 
+JDK 21 is downloaded from:
 
+```text
+https://github.com/nvth/burpsuite/releases/download/v2024.7.4/jdk-21.0.10_windows-x64_bin.zip
+```
 
-<!-- CONTRIBUTING -->
-## Contributing
+It is extracted to:
 
-Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+```text
+<install-dir>\jdk
+```
 
-If you have a suggestion that would make this better, please fork the repo and create a pull request. You can also simply open an issue with the tag "enhancement".
-Don't forget to give the project a star! Thanks again!
+All Burp launchers use this local Java runtime:
 
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b `)
-3. Commit your Changes (`git commit -m `)
-4. Push to the Branch (`git push origin `)
-5. Open a Pull Request
+```text
+<install-dir>\jdk\bin\java.exe
+```
 
-### Top contributors:
+Your system `PATH`, Java registry entries, and other applications are not modified.
 
-<a href="https://github.com/nvth/burpsuite/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=nvth/burpsuite" alt="contrib.rocks image" />
-</a>
+## Running Burp
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+After installation, start Burp using one of these options:
 
+- Start Menu shortcut: `BurpSuiteProfessional`.
+- VBS launcher:
 
+  ```text
+  <install-dir>\bin\BurpSuiteProfessional.vbs
+  ```
 
-<!-- LICENSE -->
+- BAT launcher:
+
+  ```text
+  <install-dir>\bin\burp.bat
+  ```
+
+## RAM And JVM Settings
+
+The script detects system RAM and creates a JVM memory option:
+
+- Less than 16 GB RAM: uses `-Xmx4G`.
+- 16 GB to 32 GB RAM: uses `-Xmx8G`.
+- More than 32 GB RAM: leaves JVM memory at default.
+
+If Burp is too heavy for your machine, edit:
+
+```text
+<install-dir>\bin\burp.bat
+```
+
+For example, change:
+
+```bat
+-Xmx4G
+```
+
+to:
+
+```bat
+-Xmx2G
+```
+
+or remove the `-Xmx...` option entirely.
+
+## Uninstall
+
+Open PowerShell as Administrator, then run:
+
+```powershell
+<install-dir>\uninstall.ps1
+```
+
+The uninstall script removes:
+
+- Start Menu shortcut, if present.
+- `bin` directory.
+- `data` directory.
+- `jdk` directory.
+- The main install directory.
+
+## Troubleshooting
+
+### `running scripts is disabled on this system`
+
+Do not run `install.ps1` directly. Run `install.cmd` with **Run as administrator**.
+
+### `This installer must be run as Administrator`
+
+Close the current window, right-click `install.cmd`, then choose **Run as administrator**.
+
+### Execution Policy cannot be restored
+
+Open PowerShell as Administrator and run:
+
+```powershell
+Set-ExecutionPolicy Default -Scope LocalMachine -Force
+```
+
+Check the current policy list:
+
+```powershell
+Get-ExecutionPolicy -List
+```
+
+### Change the install directory
+
+Run `install.cmd` again and enter the new directory when prompted. The script will create launchers pointing to the selected directory.
+
+## Linux
+
+This README focuses on the updated Windows flow. For Linux, run:
+
+```bash
+sudo bash install-linux.sh
+```
+
 ## License
 
-Distributed under the MIT License. See `LICENSE.txt` for more information.
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- CONTACT -->
-## Contact
-
-kevin - [@kevin](https://twitter.com/) - email@kevin.com
-
-Project Link: [https://github.com/nvth/burpsuite](https://github.com/nvth/burpsuite)
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-<!-- MARKDOWN LINKS & IMAGES -->
-<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
-
-[contributors-url]: https://github.com/nvth/burpsuite/graphs/contributors
-
-[forks-url]: https://github.com/othneildrew/Best-README-Template/network/members
-[stars-url]: https://img.shields.io/github/stars/nvth/burpsuite
-[issues-url]: https://github.com/nvth/burpsuite/issues
-[license-url]: https://github.com/nvth/burpsuite/blob/master/LICENSE.txt
-[linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
-[linkedin-url]: https://linkedin.com/in/#
-[product-screenshot]: img/image.png
-[java]: https://img.shields.io/badge/Java-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white
-[chatgpt]: https://img.shields.io/badge/ChatGPT-75a99c?logo=OpenAI&logoColor=white
+See `LICENSE`.

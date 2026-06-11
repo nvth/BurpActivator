@@ -4,8 +4,8 @@ $OutName = "burpsuite_pro.jar"
 $LoaderName = "loader.jar"
 $BatName = "burp.bat"
 $VbsName = "BurpSuiteProfessional.vbs"
-$JdkUrl = "https://github.com/nvth/burpsuite/releases/download/v2024.7.4/jdk-21_windows-x64_bin.exe"
-$JdkInstallerName = "jdk-21_windows-x64_bin.exe"
+$JdkUrl = "https://github.com/nvth/burpsuite/releases/download/v2024.7.4/jdk-21.0.10_windows-x64_bin.zip"
+$JdkArchiveName = "jdk-21.0.10_windows-x64_bin.zip"
 $LoaderUrl = "https://github.com/nvth/burpsuite/releases/download/v2024.7.4/loader.jar"
 $IconUrl = "https://github.com/nvth/burpsuite/releases/download/v2024.7.4/burppro.ico"
 $IconName = "burppro.ico"
@@ -16,9 +16,27 @@ $candidateRoot = Join-Path -Path $scriptDir -ChildPath "burpsuite_nvth"
 $candidateBin = Join-Path -Path $candidateRoot -ChildPath "bin"
 $candidateData = Join-Path -Path $candidateRoot -ChildPath "data"
 if ((Test-Path $candidateBin -PathType Container) -and (Test-Path $candidateData -PathType Container)) {
-    $rootDir = $candidateRoot
+    $defaultRootDir = $candidateRoot
 } else {
-    $rootDir = Join-Path -Path $env:SystemDrive -ChildPath "burpsuite_nvth"
+    $defaultRootDir = Join-Path -Path $env:SystemDrive -ChildPath "burpsuite_nvth"
+}
+
+Write-Host "Default install directory: $defaultRootDir"
+$selectedRootDir = Read-Host "Enter install directory, or press Enter to use default"
+if ([string]::IsNullOrWhiteSpace($selectedRootDir)) {
+    $rootDir = $defaultRootDir
+} else {
+    $selectedRootDir = [Environment]::ExpandEnvironmentVariables($selectedRootDir.Trim().Trim('"'))
+    if (-not [System.IO.Path]::IsPathRooted($selectedRootDir)) {
+        $selectedRootDir = Join-Path -Path $scriptDir -ChildPath $selectedRootDir
+    }
+
+    try {
+        $rootDir = [System.IO.Path]::GetFullPath($selectedRootDir)
+    } catch {
+        Write-Host "Invalid install directory: $selectedRootDir"
+        exit 1
+    }
 }
 $binDir = Join-Path -Path $rootDir -ChildPath "bin"
 $dataDir = Join-Path -Path $rootDir -ChildPath "data"
@@ -28,12 +46,18 @@ $outPath = Join-Path -Path $dataDir -ChildPath $OutName
 $loaderPath = Join-Path -Path $dataDir -ChildPath $LoaderName
 $batPath = Join-Path -Path $binDir -ChildPath $BatName
 $vbsPath = Join-Path -Path $binDir -ChildPath $VbsName
-$jdkInstallerPath = Join-Path -Path $dataDir -ChildPath $JdkInstallerName
+$jdkDir = Join-Path -Path $rootDir -ChildPath "jdk"
+$jdkArchivePath = Join-Path -Path $dataDir -ChildPath $JdkArchiveName
+$javaExePath = Join-Path -Path $jdkDir -ChildPath "bin\java.exe"
 $iconPath = Join-Path -Path $dataDir -ChildPath $IconName
 
 function Get-JavaMajorVersion {
+    param(
+        [string]$JavaPath = "java"
+    )
+
     try {
-        $output = & java -version 2>&1
+        $output = & $JavaPath -version 2>&1
     } catch {
         return $null
     }
@@ -53,30 +77,6 @@ function Get-JavaMajorVersion {
     return $null
 }
 
-function Get-JavaMajorVersionFromRegistry {
-    $regPaths = @(
-        "HKLM:\SOFTWARE\JavaSoft\JDK",
-        "HKLM:\SOFTWARE\Wow6432Node\JavaSoft\JDK"
-    )
-
-    foreach ($path in $regPaths) {
-        if (Test-Path $path) {
-            try {
-                $current = (Get-ItemProperty -Path $path -Name CurrentVersion -ErrorAction Stop).CurrentVersion
-                if ($current -match '^1\.(\d+)$') {
-                    return [int]$Matches[1]
-                }
-                if ($current -match '^(\d+)$') {
-                    return [int]$Matches[1]
-                }
-            } catch {
-                # Ignore registry read errors
-            }
-        }
-    }
-    return $null
-}
-
 function Test-Admin {
     $id = [Security.Principal.WindowsIdentity]::GetCurrent()
     $principal = New-Object Security.Principal.WindowsPrincipal($id)
@@ -86,16 +86,6 @@ function Test-Admin {
 # Require admin (no auto-elevation)
 if (-not (Test-Admin)) {
     Write-Host "This script must be run as Administrator. Please re-open PowerShell with admin rights."
-    exit 1
-}
-
-# Require execution policy
-$executionPolicy = Get-ExecutionPolicy
-if ($executionPolicy -ne "Unrestricted") {
-    Write-Host "ExecutionPolicy is '$executionPolicy'."
-    Write-Host "Please run these commands first:"
-    Write-Host "  Set-ExecutionPolicy RemoteSigned"
-    Write-Host "  Set-ExecutionPolicy Unrestricted"
     exit 1
 }
 
@@ -120,51 +110,70 @@ if (Test-Path $loaderPath) { Write-Host "Installed" } else { Write-Host "Not ins
 Write-Host " - $BatName : " -NoNewline
 if (Test-Path $batPath) { Write-Host "Installed" } else { Write-Host "Not installed" }
 
-# Check Java 21 and install if missing
+# Check portable Java 21 and install if missing
 Write-Host ""
-Write-Host "Checking Java 21..."
-$javaMajor = Get-JavaMajorVersion
-if (-not $javaMajor) {
-    $javaMajor = Get-JavaMajorVersionFromRegistry
-}
+Write-Host "Checking portable Java 21..."
+$javaMajor = Get-JavaMajorVersion -JavaPath $javaExePath
 
 if ($javaMajor -ge 21) {
-    Write-Host "Java $javaMajor detected."
+    Write-Host "Portable Java $javaMajor detected at $javaExePath."
 } else {
-    Write-Host "Java 21 not found."
-    $confirm = Read-Host "Do you want to download and install JDK 21 now? (Y/N)"
+    Write-Host "Portable Java 21 not found in $jdkDir."
+    $confirm = Read-Host "Do you want to download portable JDK 21 for this Burp installation now? (Y/N)"
     if ($confirm -notmatch '^(?i)y(es)?$') {
         Write-Host "Installation canceled by user."
         exit 1
     }
-    Write-Host "Downloading and installing JDK 21..."
+    Write-Host "Downloading portable JDK 21..."
     Write-Host "URL: $JdkUrl"
-    Write-Host "Save at $jdkInstallerPath"
+    Write-Host "Save at $jdkArchivePath"
 
-    & curl.exe -L --fail -o $jdkInstallerPath $JdkUrl
+    & curl.exe -L --fail -o $jdkArchivePath $JdkUrl
     $exit = $LASTEXITCODE
-    if ($exit -ne 0 -or -not (Test-Path $jdkInstallerPath)) {
+    if ($exit -ne 0 -or -not (Test-Path $jdkArchivePath)) {
         Write-Host "Download Failed: $exit"
         exit $exit
     }
 
-    Write-Host "Starting JDK 21 installer (silent)..."
-    $proc = Start-Process -FilePath $jdkInstallerPath -ArgumentList "/s" -Wait -PassThru
-    if ($proc.ExitCode -ne 0) {
-        Write-Host "JDK installer exited with code $($proc.ExitCode)."
-        Write-Host "If Java is not detected, please run the installer manually:"
-        Write-Host "  $jdkInstallerPath"
+    Write-Host "Extracting portable JDK 21..."
+    $jdkExtractDir = Join-Path -Path $dataDir -ChildPath "jdk_extract"
+    if (Test-Path $jdkExtractDir) {
+        Remove-Item -Recurse -Force $jdkExtractDir
+    }
+    New-Item -ItemType Directory -Path $jdkExtractDir -Force | Out-Null
+
+    try {
+        Expand-Archive -Path $jdkArchivePath -DestinationPath $jdkExtractDir -Force
+    } catch {
+        Write-Host "Failed to extract JDK archive: $($_.Exception.Message)"
+        exit 1
     }
 
-    $javaMajor = Get-JavaMajorVersion
-    if (-not $javaMajor) {
-        $javaMajor = Get-JavaMajorVersionFromRegistry
+    $extractedJava = Get-ChildItem -Path $jdkExtractDir -Recurse -Filter "java.exe" |
+        Where-Object { $_.FullName -match '\\bin\\java\.exe$' } |
+        Select-Object -First 1
+
+    if (-not $extractedJava) {
+        Write-Host "Failed to find java.exe in extracted JDK archive."
+        exit 1
     }
+
+    $extractedJdkRoot = Split-Path -Parent (Split-Path -Parent $extractedJava.FullName)
+    if (Test-Path $jdkDir) {
+        Remove-Item -Recurse -Force $jdkDir
+    }
+    Move-Item -LiteralPath $extractedJdkRoot -Destination $jdkDir -Force
+    if (Test-Path $jdkExtractDir) {
+        Remove-Item -Recurse -Force $jdkExtractDir
+    }
+
+    $javaMajor = Get-JavaMajorVersion -JavaPath $javaExePath
 
     if ($javaMajor -ge 21) {
-        Write-Host "Java 21 installed successfully."
+        Write-Host "Portable Java 21 installed successfully at $jdkDir."
     } else {
-        Write-Host "Warning: Java 21 still not detected. Please complete installation and rerun the script."
+        Write-Host "Warning: portable Java 21 still not detected at $javaExePath."
+        exit 1
     }
 }
 
@@ -291,7 +300,7 @@ try {
 }
 
 # Create Burp.bat
-$javaCmd = "java $javaXmx --add-opens=java.desktop/javax.swing=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-opens=java.base/jdk.internal.org.objectweb.asm.tree=ALL-UNNAMED --add-opens=java.base/jdk.internal.org.objectweb.asm.Opcodes=ALL-UNNAMED -javaagent:`"$loaderPath`" -noverify -jar `"$outPath`""
+$javaCmd = "`"$javaExePath`" $javaXmx --add-opens=java.desktop/javax.swing=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-opens=java.base/jdk.internal.org.objectweb.asm.tree=ALL-UNNAMED --add-opens=java.base/jdk.internal.org.objectweb.asm.Opcodes=ALL-UNNAMED -javaagent:`"$loaderPath`" -noverify -jar `"$outPath`""
 Set-Content -Path $batPath -Value $javaCmd -Encoding ASCII
 
 Write-Host "$BatName file is created at: $batPath`n"
@@ -366,7 +375,7 @@ try {
 echo "Reloading Environment Variables ...."
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User") 
 echo "`n`nStarting Keygenerator ...."
-start-process java.exe -argumentlist "-jar `"$loaderPath`""
+Start-Process -FilePath $javaExePath -ArgumentList "-jar `"$loaderPath`""
 echo "`n`nStarting Burp Suite Professional"
-java --add-opens=java.desktop/javax.swing=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-opens=java.base/jdk.internal.org.objectweb.asm.tree=ALL-UNNAMED --add-opens=java.base/jdk.internal.org.objectweb.asm.Opcodes=ALL-UNNAMED -javaagent:"$loaderPath" -noverify -jar "$outPath"
+& $javaExePath --add-opens=java.desktop/javax.swing=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-opens=java.base/jdk.internal.org.objectweb.asm.tree=ALL-UNNAMED --add-opens=java.base/jdk.internal.org.objectweb.asm.Opcodes=ALL-UNNAMED -javaagent:"$loaderPath" -noverify -jar "$outPath"
 exit 0
