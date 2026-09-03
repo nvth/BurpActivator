@@ -3,7 +3,7 @@ set -euo pipefail
 
 BURP_URL="https://portswigger-cdn.net/burp/releases/download?product=pro&version=&type=jar"
 JDK_URL="https://github.com/nvth/burpsuite/releases/download/v2024.7.4/jdk-21.0.9_linux-x64_bin.tar.gz"
-LOADER_UBUNTU_URL="https://github.com/nvth/burpsuite/releases/download/v2024.7.4/loader-ubuntu.jar"
+LOADER_UBUNTU_URL="https://github.com/nvth/burpsuite/releases/download/v2026.3.3/core.jar"
 ICON_URL="https://github.com/nvth/burpsuite/releases/download/v2024.7.4/burppro.ico"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$SCRIPT_DIR/burpsuite_nvth"
@@ -11,8 +11,7 @@ DATA_DIR="$ROOT_DIR/data"
 BIN_DIR="$ROOT_DIR/bin"
 
 BURP_JAR="$DATA_DIR/burpsuite_pro.jar"
-LOADER_UBUNTU="$DATA_DIR/loader-ubuntu.jar"
-LOADER_STD="$DATA_DIR/loader.jar"
+LOADER_UBUNTU="$DATA_DIR/core.jar"
 ICON_PATH="$DATA_DIR/burppro.ico"
 LAUNCHER="$BIN_DIR/burp"
 JDK_TAR="$DATA_DIR/jdk-21.0.9_linux-x64_bin.tar.gz"
@@ -218,13 +217,13 @@ fi
 
 ensure_valid_jar "$BURP_JAR" "$BURP_URL" "burpsuite_pro.jar"
 
-if [[ ! -f "$LOADER_UBUNTU" && -f "$SCRIPT_DIR/loader-ubuntu.jar" ]]; then
-  cp -f "$SCRIPT_DIR/loader-ubuntu.jar" "$LOADER_UBUNTU"
+if [[ -f "$SCRIPT_DIR/core.jar" && "$SCRIPT_DIR/core.jar" != "$LOADER_UBUNTU" ]]; then
+  cp -f "$SCRIPT_DIR/core.jar" "$LOADER_UBUNTU"
 fi
-if [[ ! -f "$LOADER_STD" && -f "$SCRIPT_DIR/loader.jar" ]]; then
-  cp -f "$SCRIPT_DIR/loader.jar" "$LOADER_STD"
+if [[ ! -f "$LOADER_UBUNTU" ]]; then
+  echo "[INFO] Local core.jar not found. Downloading Core from GitHub release v2026.3.3."
 fi
-ensure_valid_jar "$LOADER_UBUNTU" "$LOADER_UBUNTU_URL" "loader-ubuntu.jar"
+ensure_valid_jar "$LOADER_UBUNTU" "$LOADER_UBUNTU_URL" "core.jar"
 
 if [[ ! -f "$ICON_PATH" ]]; then
   if [[ -f "$SCRIPT_DIR/burppro.ico" ]]; then
@@ -235,13 +234,10 @@ if [[ ! -f "$ICON_PATH" ]]; then
 fi
 
 if [[ -f "$LOADER_UBUNTU" ]]; then
-  echo "Using loader-ubuntu.jar (data)"
+  echo "Using core.jar (data)"
   ACTIVE_LOADER="$LOADER_UBUNTU"
-elif [[ -f "$LOADER_STD" ]]; then
-  echo "Using loader.jar (data)"
-  ACTIVE_LOADER="$LOADER_STD"
 else
-  echo "loader jar not found. Please place loader-ubuntu.jar or loader.jar in $SCRIPT_DIR."
+  echo "Core JAR not found. Please place core.jar in $SCRIPT_DIR."
   exit 1
 fi
 
@@ -259,12 +255,10 @@ ROOT_DIR="$(cd -- "$(dirname -- "$SCRIPT_PATH")/.." && pwd)"
 DATA_DIR="$ROOT_DIR/data"
 BURP_JAR="$DATA_DIR/burpsuite_pro.jar"
 
-if [[ -f "$DATA_DIR/loader-ubuntu.jar" ]]; then
-  LOADER_JAR="$DATA_DIR/loader-ubuntu.jar"
-elif [[ -f "$DATA_DIR/loader.jar" ]]; then
-  LOADER_JAR="$DATA_DIR/loader.jar"
+if [[ -f "$DATA_DIR/core.jar" ]]; then
+  LOADER_JAR="$DATA_DIR/core.jar"
 else
-  echo "loader jar not found in $DATA_DIR." >&2
+  echo "Core JAR not found in $DATA_DIR." >&2
   exit 1
 fi
 
@@ -527,7 +521,7 @@ run_as_user() {
   fi
 }
 
-echo "Starting loader and Burp Suite..."
+echo "Starting Core and Burp Suite..."
 JAVA_BIN="$(resolve_java_bin || true)"
 if [[ -z "$JAVA_BIN" ]]; then
   echo "Java not found. Please install Java 18 or 21."
