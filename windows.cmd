@@ -312,8 +312,22 @@ try {
         $rootDir.TrimEnd('\') -ieq [IO.Path]::GetPathRoot($rootDir).TrimEnd('\')) {
         throw 'The uninstaller must remain in its original installation directory.'
     }
-    $confirm = Read-Host "This will remove Burp Suite NVTH files in $rootDir. Continue? (Y/N)"
+    $installUserSid = '__INSTALL_USER_SID__'
+    if ([Security.Principal.WindowsIdentity]::GetCurrent().User.Value -ne $installUserSid) {
+        throw 'Run this uninstaller as the Windows account that installed Burp, so the correct license store is cleared.'
+    }
+    Write-Host '[INFO] Close every Burp Suite instance before continuing so it cannot save the license again.'
+    $confirm = Read-Host "Remove Burp Suite NVTH files in $rootDir AND this account's stored Burp license/preferences? This affects other Burp installations using the same preferences. (Y/N)"
     if ($confirm -notmatch '^(?i)y(es)?$') { Write-Host 'Canceled.'; exit 1 }
+
+    # Clear only Burp's Java preferences, never the shared JavaSoft preference root.
+    $burpPreferences = 'HKCU:\Software\JavaSoft\Prefs\burp'
+    if (Test-Path -LiteralPath $burpPreferences) {
+        Remove-Item -LiteralPath $burpPreferences -Recurse -Force -ErrorAction Stop
+        Write-Host '[INFO] Removed the stored Burp license and preferences for this Windows account.'
+    } else {
+        Write-Host '[INFO] No Burp Java preferences were found for this Windows account.'
+    }
 
     $userShortcut = Join-Path ([Environment]::GetFolderPath('Programs')) 'BurpSuiteProfessional.lnk'
     if (Test-Path -LiteralPath $userShortcut) {
@@ -353,6 +367,7 @@ try {
 }
 '@
 $uninstallScript = $uninstallScript.Replace('__ROOT_LITERAL__', $rootDir.Replace("'", "''"))
+$uninstallScript = $uninstallScript.Replace('__INSTALL_USER_SID__', [Security.Principal.WindowsIdentity]::GetCurrent().User.Value)
 Set-Content -LiteralPath $uninstallPath -Value $uninstallScript -Encoding UTF8
 Write-Host "Uninstall script created at: $uninstallPath"
 
@@ -361,11 +376,13 @@ $uninstallInfoPath = Join-Path -Path $rootDir -ChildPath "UNINSTALL.txt"
 $uninstallInfo = @'
 UNINSTALL (Windows)
 
-Step 1: Open PowerShell normally.
+Step 1: Close all Burp Suite instances. Open PowerShell as the Windows account that installed Burp.
 Step 2: Run the uninstall script in a separate PowerShell process:
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File "__ROOT_DIR__\uninstall.ps1"
 If access is denied for an installation created by an Administrator, rerun from
 an Administrator PowerShell window.
+Uninstall also removes this account's stored Burp license and Java preferences.
+Other Burp installations sharing these preferences will need configuration/activation again.
 '@
 $uninstallInfo = $uninstallInfo.Replace('__ROOT_DIR__', $rootDir)
 Set-Content -LiteralPath $uninstallInfoPath -Value $uninstallInfo -Encoding UTF8

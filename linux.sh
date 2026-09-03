@@ -373,8 +373,8 @@ fi
 
 # Create uninstall script
 UNINSTALL_SH="$ROOT_DIR/uninstall.sh"
-cat > "$UNINSTALL_SH" <<'EOF'
-#!/usr/bin/env bash
+printf '#!/usr/bin/env bash\nINSTALL_USER=%q\n' "${SUDO_USER:-$(id -un)}" > "$UNINSTALL_SH"
+cat >> "$UNINSTALL_SH" <<'EOF'
 set -euo pipefail
 
 if [[ $EUID -ne 0 ]]; then
@@ -386,15 +386,36 @@ fi
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 BIN_DIR="$ROOT_DIR/bin"
 DATA_DIR="$ROOT_DIR/data"
-DESKTOP_FILE="$HOME/.local/share/applications/BurpSuiteProfessional.desktop"
+USER_HOME="$(getent passwd "$INSTALL_USER" | cut -d: -f6)"
+if [[ -z "$USER_HOME" || "$USER_HOME" != /* || "$USER_HOME" == / || ! -d "$USER_HOME" ]]; then
+  echo "[ERROR] Cannot resolve the installation account's home directory: $INSTALL_USER" >&2
+  exit 1
+fi
+DESKTOP_FILE="$USER_HOME/.local/share/applications/BurpSuiteProfessional.desktop"
 ENV_FILE="/etc/profile.d/burpsuite_nvth_java.sh"
 SYMLINK_SYSTEM="/usr/local/bin/burp"
-SYMLINK_USER="$HOME/.local/bin/burp"
+SYMLINK_USER="$USER_HOME/.local/bin/burp"
 
-read -r -p "This will remove Burp Suite NVTH launcher, symlinks, and desktop entry. Continue? (Y/N) " answer
+echo "[INFO] Close every Burp Suite instance before continuing so it cannot save the license again."
+read -r -p "Remove Burp Suite NVTH files AND stored Burp license/preferences for $INSTALL_USER? Other Burp installations sharing these preferences are affected. (Y/N) " answer
 if [[ ! $answer =~ ^[Yy]([Ee][Ss])?$ ]]; then
   echo "Canceled."
   exit 1
+fi
+
+# Remove only the verified Burp preference node for the installation account.
+BURP_PREFS="$USER_HOME/.java/.userPrefs/burp"
+if [[ -e "$BURP_PREFS" || -L "$BURP_PREFS" ]]; then
+  USER_HOME_REAL="$(realpath -e -- "$USER_HOME")"
+  BURP_PREFS_REAL="$(realpath -m -- "$BURP_PREFS")"
+  if [[ "$BURP_PREFS_REAL" != "$USER_HOME_REAL/.java/.userPrefs/burp" ]]; then
+    echo "[ERROR] Burp preferences resolve through a redirected path. Remove them manually: $BURP_PREFS" >&2
+    exit 1
+  fi
+  rm -rf -- "$BURP_PREFS"
+  echo "[INFO] Removed stored Burp license and preferences for $INSTALL_USER."
+else
+  echo "[INFO] No Burp Java preferences found for $INSTALL_USER."
 fi
 
 if [[ -L "$SYMLINK_SYSTEM" ]]; then
@@ -445,9 +466,11 @@ UNINSTALL_TXT="$ROOT_DIR/UNINSTALL.txt"
 cat > "$UNINSTALL_TXT" <<EOF
 UNINSTALL (Linux)
 
-Step 1: Open a terminal.
+Step 1: Close all Burp Suite instances and open a terminal.
 Step 2: Run as root:
   sudo bash $UNINSTALL_SH
+Uninstall also removes the installation account's stored Burp license and Java preferences.
+Other Burp installations sharing these preferences will need configuration/activation again.
 EOF
 echo "Uninstall instructions created: $UNINSTALL_TXT"
 
